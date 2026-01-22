@@ -1,34 +1,63 @@
-<?php require "header.php";
+<?php
+require "header.php";
 
 $student_id = trim($_GET["student_id"] ?? "");
-$info=null; $rows=[]; $err="";
+$search_name = trim($_GET["search_name"] ?? "");
+$info = null;
+$rows = [];
+$err = "";
 
-if($student_id!==""){
-  if(!ctype_digit($student_id)) $err="Student ID must be numeric.";
-  else{
-    $st=$conn->prepare("SELECT * FROM students WHERE student_id=?");
-    $st->bind_param("i",$student_id);
-    $st->execute();
-    $info=$st->get_result()->fetch_assoc();
-    if(!$info) $err="Student not found.";
-    else{
-      $st=$conn->prepare("
-        SELECT
-          e.enrollment_id, e.course_id, c.course_name, e.course_fee AS total_fee, e.enrolled_date,
-          COALESCE(SUM(p.paid_amount),0) AS total_paid,
-          (e.course_fee - COALESCE(SUM(p.paid_amount),0)) AS balance
-        FROM enrollments e
-        JOIN courses c ON c.course_id = e.course_id
-        LEFT JOIN payments p ON p.enrollment_id = e.enrollment_id
-        WHERE e.student_id=?
-        GROUP BY e.enrollment_id, e.course_id, c.course_name, e.course_fee, e.enrolled_date
-        ORDER BY e.enrollment_id DESC
-      ");
-      $st->bind_param("i",$student_id);
-      $st->execute();
-      $rows=$st->get_result()->fetch_all(MYSQLI_ASSOC);
+if ($student_id !== "" || $search_name !== "") {
+
+    // Search by Student ID if given
+    if ($student_id !== "" && ctype_digit($student_id)) {
+        $st = $conn->prepare("SELECT * FROM students WHERE student_id=?");
+        $st->bind_param("i", $student_id);
+        $st->execute();
+        $info = $st->get_result()->fetch_assoc();
+
+        if (!$info) $err = "Student not found.";
+    } 
+    // Else search by Student Name
+    elseif ($search_name !== "") {
+        $st = $conn->prepare("SELECT * FROM students WHERE student_name LIKE ?");
+        $like = "%".$search_name."%";
+        $st->bind_param("s", $like);
+        $st->execute();
+        $res = $st->get_result();
+
+        if ($res->num_rows === 1) {
+            $info = $res->fetch_assoc();
+            $student_id = $info['student_id']; // set ID for enrollment query
+        } elseif ($res->num_rows > 1) {
+            $err = "Multiple students found. Please use Student ID.";
+        } else {
+            $err = "Student not found.";
+        }
     }
-  }
+
+    // Load enrollment data if student found
+    if ($info) {
+        $st = $conn->prepare("
+            SELECT
+                e.enrollment_id,
+                e.course_id,
+                c.course_name,
+                e.course_fee AS total_fee,
+                e.enrolled_date,
+                COALESCE(SUM(p.paid_amount),0) AS total_paid,
+                (e.course_fee - COALESCE(SUM(p.paid_amount),0)) AS balance
+            FROM enrollments e
+            JOIN courses c ON c.course_id = e.course_id
+            LEFT JOIN payments p ON p.enrollment_id = e.enrollment_id
+            WHERE e.student_id=?
+            GROUP BY e.enrollment_id, e.course_id, c.course_name, e.course_fee, e.enrolled_date
+            ORDER BY e.enrollment_id DESC
+        ");
+        $st->bind_param("i", $student_id);
+        $st->execute();
+        $rows = $st->get_result()->fetch_all(MYSQLI_ASSOC);
+    }
 }
 ?>
 
@@ -37,22 +66,35 @@ if($student_id!==""){
 <div class="form-card">
   <form method="get">
     <label>Student ID</label>
-    <input type="text" name="student_id" value="<?=h($student_id)?>" required>
+    <input type="text" name="student_id" id="student_id" value="<?=h($student_id)?>" placeholder="Enter Student ID">
+    
+    <label>Student Name</label>
+    <input type="text" name="search_name" id="student_name" value="<?=h($info['student_name'] ?? '')?>" placeholder="Enter Name" >
+
     <button type="submit">Search</button>
   </form>
 </div>
 
-<?php if($err) echo "<div class='err'>".h($err)."</div>"; ?>
+<?php if($err): ?>
+  <div class='err'><?=h($err)?></div>
+<?php endif; ?>
 
 <?php if($info): ?>
-  <h3>Student: <?=h($info["student_id"])?> - <?=h($info["student_name"])?> (<?=h($info["nic"])?>)</h3>
+  <h3>
+    Student: <?=h($info["student_id"])?> - <?=h($info["student_name"])?> (<?=h($info["nic"])?>)
+  </h3>
 
-  <table>
+  <table border="1" cellpadding="5" cellspacing="0">
     <tr>
-      <th>Enrollment ID</th><th>Course</th><th>Total Fee</th><th>Paid</th><th>Balance</th><th>Enrolled Date</th>
+      <th>Enrollment ID</th>
+      <th>Course</th>
+      <th>Total Fee</th>
+      <th>Paid</th>
+      <th>Balance</th>
+      <th>Enrolled Date</th>
     </tr>
     <?php
-      $tFee=0; $tPaid=0; $tBal=0;
+      $tFee = 0; $tPaid = 0; $tBal = 0;
       foreach($rows as $r):
         $tFee += (float)$r["total_fee"];
         $tPaid += (float)$r["total_paid"];
@@ -78,4 +120,26 @@ if($student_id!==""){
   </table>
 <?php endif; ?>
 
+<script>
+document.getElementById('student_id').addEventListener('input', function() {
+    let id = this.value.trim();
+    if(id === "" || isNaN(id)){
+        document.getElementById('student_name').value = "";
+        return;
+    }
+
+    fetch('get_student_name.php?student_id=' + id)
+    .then(res => res.json())
+    .then(data => {
+        if(data.success){
+            document.getElementById('student_name').value = data.name;
+        } else {
+            document.getElementById('student_name').value = "";
+        }
+    })
+    .catch(err => console.error(err));
+});
+</script>
+
 <?php require "footer.php"; ?>
+
