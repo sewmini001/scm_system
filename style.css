@@ -1,0 +1,50 @@
+body { font-family: Arial, sans-serif; margin:0; background:#f5f6f7; }
+.container { max-width: 1200px; margin: 30px auto; padding: 0 18px; }
+
+.navbar { background:#2c3e50; padding: 12px 18px; }
+.navbar a { color:#fff; text-decoration:none; margin-right:18px; font-weight:600; }
+.navbar a:hover { text-decoration: underline; }
+
+.page-title { text-align:center; margin: 30px 0 10px; font-size: 38px; font-weight:800; color:#2c3e50; }
+.subtitle { text-align:center; margin-bottom:30px; color:#666; }
+
+.card-row { display:flex; gap:18px; flex-wrap:wrap; justify-content:center; }
+.card { background:#fff; border-radius:10px; padding:18px; box-shadow:0 2px 8px rgba(0,0,0,.08); width: 260px; }
+.card h3 { margin: 0 0 8px; color:#2c3e50; }
+.card p { color:#666; font-size:14px; }
+.btn { display:inline-block; padding:10px 14px; border-radius:6px; background:#3498db; color:#fff; text-decoration:none; font-weight:700; }
+.btn:hover { opacity:.9; }
+
+.form-card { background:#fff; padding:16px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.08); max-width: 520px; }
+label { display:block; margin-top:12px; font-weight:700; color:#2c3e50; }
+input, select { width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; margin-top:6px; }
+button { margin-top:14px; padding:10px 14px; border:0; border-radius:6px; background:#1abc9c; color:#fff; font-weight:800; cursor:pointer; }
+button:hover { opacity:.92; }
+
+table { width:100%; border-collapse: collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+th { background:#2c3e50; color:#fff; padding:12px; text-align:left; }
+td { padding:10px; border-top:1px solid #eee; }
+.action a { margin-right:10px; font-weight:700; }
+
+.msg { background:#e8fff7; border:1px solid #bfeee0; padding:10px; border-radius:8px; margin: 10px 0; }
+.err { background:#ffecec; border:1px solid #f5b6b6; padding:10px; border-radius:8px; margin: 10px 0; }
+
+.small { font-size: 13px; color:#666; }
+.fee-link { cursor:pointer; color:#1f6feb; font-weight:800; text-decoration: underline; }
+.filters { display:flex; gap:10px; flex-wrap:wrap; margin: 12px 0; }
+.filters .form-card { max-width: 100%; width: 100%; }
+.footer { margin-top:30px; background:#2c3e50; color:#fff; padding:12px; text-align:center; }
+
+html, body {
+  height: 100%;
+}
+
+.page-wrapper {
+  min-height: 100vh;      /* full screen height */
+  display: flex;
+  flex-direction: column; /* stack navbar, content, footer */
+}
+
+.container {
+  flex: 1;                /* take all remaining space */
+}
