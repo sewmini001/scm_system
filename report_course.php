@@ -1,34 +1,48 @@
-<?php require "header.php";
+<?php
+require "header.php";
 
 $course_id = trim($_GET["course_id"] ?? "");
-$info=null; $rows=[]; $err="";
+$info = null; 
+$rows = []; 
+$err = "";
 
-if($course_id!==""){
-  if(!ctype_digit($course_id)) $err="Course ID must be numeric.";
-  else{
-    $st=$conn->prepare("SELECT * FROM courses WHERE course_id=?");
-    $st->bind_param("i",$course_id);
-    $st->execute();
-    $info=$st->get_result()->fetch_assoc();
-    if(!$info) $err="Course not found.";
-    else{
-      $st=$conn->prepare("
-        SELECT
-          e.enrollment_id, e.student_id, s.student_name, s.nic, e.course_fee AS total_fee, e.enrolled_date,
-          COALESCE(SUM(p.paid_amount),0) AS total_paid,
-          (e.course_fee - COALESCE(SUM(p.paid_amount),0)) AS balance
-        FROM enrollments e
-        JOIN students s ON s.student_id = e.student_id
-        LEFT JOIN payments p ON p.enrollment_id = e.enrollment_id
-        WHERE e.course_id=?
-        GROUP BY e.enrollment_id, e.student_id, s.student_name, s.nic, e.course_fee, e.enrolled_date
-        ORDER BY e.enrollment_id DESC
-      ");
-      $st->bind_param("i",$course_id);
-      $st->execute();
-      $rows=$st->get_result()->fetch_all(MYSQLI_ASSOC);
+if($course_id !== "") {
+
+    if(!ctype_digit($course_id)) {
+        $err = "Course ID must be numeric.";
+    } else {
+        // Fetch course info
+        $st = $conn->prepare("SELECT * FROM courses WHERE course_id=?");
+        $st->bind_param("i", $course_id);
+        $st->execute();
+        $info = $st->get_result()->fetch_assoc();
+
+        if(!$info) {
+            $err = "Course not found.";
+        } else {
+            // Fetch enrollments
+            $st = $conn->prepare("
+                SELECT
+                  e.enrollment_id,
+                  e.student_id,
+                  s.student_name,
+                  s.nic,
+                  e.course_fee AS total_fee,
+                  e.enrolled_date,
+                  COALESCE(SUM(p.paid_amount),0) AS total_paid,
+                  (e.course_fee - COALESCE(SUM(p.paid_amount),0)) AS balance
+                FROM enrollments e
+                JOIN students s ON s.student_id = e.student_id
+                LEFT JOIN payments p ON p.enrollment_id = e.enrollment_id
+                WHERE e.course_id=?
+                GROUP BY e.enrollment_id, e.student_id, s.student_name, s.nic, e.course_fee, e.enrolled_date
+                ORDER BY e.enrollment_id DESC
+            ");
+            $st->bind_param("i", $course_id);
+            $st->execute();
+            $rows = $st->get_result()->fetch_all(MYSQLI_ASSOC);
+        }
     }
-  }
 }
 ?>
 
@@ -37,22 +51,33 @@ if($course_id!==""){
 <div class="form-card">
   <form method="get">
     <label>Course ID</label>
-    <input type="text" name="course_id" value="<?=h($course_id)?>" required>
+    <input type="text" name="course_id" id="course_id" value="<?=h($course_id)?>" placeholder="Enter Course ID">
+
+    <label>Course Name</label>
+    <input type="text" id="course_name" value="<?=h($info['course_name'] ?? '')?>" readonly>
+
     <button type="submit">Search</button>
   </form>
 </div>
 
-<?php if($err) echo "<div class='err'>".h($err)."</div>"; ?>
+<?php if($err): ?>
+  <div class='err'><?=h($err)?></div>
+<?php endif; ?>
 
 <?php if($info): ?>
   <h3>Course: <?=h($info["course_id"])?> - <?=h($info["course_name"])?> | Fee: <?=number_format((float)$info["course_fee"],2)?></h3>
 
-  <table>
+  <table border="1" cellpadding="5" cellspacing="0">
     <tr>
-      <th>Enrollment ID</th><th>Student</th><th>Total Fee</th><th>Paid</th><th>Balance</th><th>Enrolled Date</th>
+      <th>Enrollment ID</th>
+      <th>Student</th>
+      <th>Total Fee</th>
+      <th>Paid</th>
+      <th>Balance</th>
+      <th>Enrolled Date</th>
     </tr>
     <?php
-      $tFee=0; $tPaid=0; $tBal=0; $count=0;
+      $tFee = 0; $tPaid = 0; $tBal = 0; $count = 0;
       foreach($rows as $r):
         $count++;
         $tFee += (float)$r["total_fee"];
@@ -82,5 +107,26 @@ if($course_id!==""){
     <a class="btn" href="course_daily_chart.php?course_id=<?= (int)$info["course_id"] ?>">Daily Payments Chart</a>
   </p>
 <?php endif; ?>
+
+<script>
+document.getElementById('course_id').addEventListener('input', function() {
+    let id = this.value.trim();
+    if(id === "" || isNaN(id)){
+        document.getElementById('course_name').value = "";
+        return;
+    }
+
+    fetch('get_course_name.php?course_id=' + id)
+    .then(res => res.json())
+    .then(data => {
+        if(data.success){
+            document.getElementById('course_name').value = data.name;
+        } else {
+            document.getElementById('course_name').value = "";
+        }
+    })
+    .catch(err => console.error(err));
+});
+</script>
 
 <?php require "footer.php"; ?>
